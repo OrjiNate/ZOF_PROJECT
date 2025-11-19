@@ -1,8 +1,7 @@
 import math
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
-
 
 # --- 1. HELPER FUNCTIONS ---
 
@@ -17,8 +16,7 @@ def safe_eval(func_str, x):
     except Exception:
         return None
 
-
-# --- 2. SOLVER ALGORITHMS (Returning Data Lists) ---
+# --- 2. SOLVER ALGORITHMS ---
 
 def solve_bisection(func_str, a, b, tol, max_iter):
     data = []
@@ -35,11 +33,11 @@ def solve_bisection(func_str, a, b, tol, max_iter):
         c = (a + b) / 2
         fc = safe_eval(func_str, c)
         error = abs(b - a)
-
+        
         data.append({
-            "iter": i,
-            "root": round(c, 8),
-            "func": round(fc, 8),
+            "iter": i, 
+            "root": round(c, 8), 
+            "func": round(fc, 8), 
             "error": round(error, 8)
         })
 
@@ -52,9 +50,8 @@ def solve_bisection(func_str, a, b, tol, max_iter):
         else:
             a = c
             fa = fc
-
+            
     return {"data": data, "root": root, "converged": root is not None}
-
 
 def solve_regula_falsi(func_str, a, b, tol, max_iter):
     data = []
@@ -70,11 +67,11 @@ def solve_regula_falsi(func_str, a, b, tol, max_iter):
         c = (a * fb - b * fa) / (fb - fa)
         fc = safe_eval(func_str, c)
         error = abs(c - prev_c)
-
+        
         data.append({
-            "iter": i,
-            "root": round(c, 8),
-            "func": round(fc, 8),
+            "iter": i, 
+            "root": round(c, 8), 
+            "func": round(fc, 8), 
             "error": round(error, 8)
         })
 
@@ -92,15 +89,14 @@ def solve_regula_falsi(func_str, a, b, tol, max_iter):
 
     return {"data": data, "root": root, "converged": root is not None}
 
-
 def solve_secant(func_str, x0, x1, tol, max_iter):
     data = []
     root = None
-
+    
     for i in range(1, max_iter + 1):
         f0 = safe_eval(func_str, x0)
         f1 = safe_eval(func_str, x1)
-
+        
         if f0 is None or f1 is None: return {"error": "Eval error"}
         if (f1 - f0) == 0: return {"error": "Division by zero (f1 - f0 = 0)"}
 
@@ -109,20 +105,19 @@ def solve_secant(func_str, x0, x1, tol, max_iter):
         error = abs(x2 - x1)
 
         data.append({
-            "iter": i,
-            "root": round(x2, 8),
-            "func": round(f2, 8),
+            "iter": i, 
+            "root": round(x2, 8), 
+            "func": round(f2, 8), 
             "error": round(error, 8)
         })
 
         if abs(f2) < tol or error < tol:
             root = x2
             break
-
+        
         x0, x1 = x1, x2
 
     return {"data": data, "root": root, "converged": root is not None}
-
 
 def solve_newton(func_str, deriv_str, x0, tol, max_iter):
     data = []
@@ -140,9 +135,9 @@ def solve_newton(func_str, deriv_str, x0, tol, max_iter):
         error = abs(x1 - x0)
 
         data.append({
-            "iter": i,
-            "root": round(x1, 8),
-            "func": round(f1, 8),
+            "iter": i, 
+            "root": round(x1, 8), 
+            "func": round(f1, 8), 
             "error": round(error, 8)
         })
 
@@ -152,7 +147,6 @@ def solve_newton(func_str, deriv_str, x0, tol, max_iter):
         x0 = x1
 
     return {"data": data, "root": root, "converged": root is not None}
-
 
 def solve_fixed_point(g_str, x0, tol, max_iter):
     data = []
@@ -161,25 +155,24 @@ def solve_fixed_point(g_str, x0, tol, max_iter):
     for i in range(1, max_iter + 1):
         x1 = safe_eval(g_str, x0)
         if x1 is None: return {"error": "Eval error"}
-
+        
         error = abs(x1 - x0)
-
+        
         data.append({
-            "iter": i,
-            "root": round(x1, 8),
-            "func": round(x1, 8),  # g(x) is the new x
+            "iter": i, 
+            "root": round(x1, 8), 
+            "func": round(x1, 8), 
             "error": round(error, 8)
         })
 
         if error < tol:
             root = x1
             break
-
+        
         x0 = x1
         if x0 > 1e10: return {"error": "Divergence detected."}
 
     return {"data": data, "root": root, "converged": root is not None}
-
 
 def solve_mod_secant(func_str, x0, delta, tol, max_iter):
     data = []
@@ -188,7 +181,7 @@ def solve_mod_secant(func_str, x0, delta, tol, max_iter):
     for i in range(1, max_iter + 1):
         f0 = safe_eval(func_str, x0)
         f0_delta = safe_eval(func_str, x0 + delta * x0)
-
+        
         denom = f0_delta - f0
         if denom == 0: return {"error": "Division by zero"}
 
@@ -197,9 +190,9 @@ def solve_mod_secant(func_str, x0, delta, tol, max_iter):
         error = abs(x1 - x0)
 
         data.append({
-            "iter": i,
-            "root": round(x1, 8),
-            "func": round(f1, 8),
+            "iter": i, 
+            "root": round(x1, 8), 
+            "func": round(f1, 8), 
             "error": round(error, 8)
         })
 
@@ -210,59 +203,60 @@ def solve_mod_secant(func_str, x0, delta, tol, max_iter):
 
     return {"data": data, "root": root, "converged": root is not None}
 
-
 # --- 3. ROUTES ---
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    result = None
-
+    # HANDLE POST (The Calculation Request)
     if request.method == 'POST':
         try:
-            # Get common inputs
+            # request.form works for FormData sent via JS fetch
             method = request.form.get('method')
             func_str = request.form.get('function')
             tol = float(request.form.get('tolerance'))
             max_iter = int(request.form.get('max_iter'))
-
-            # Dispatch based on method
+            
+            result = None
+            
             if method == 'bisection':
                 a = float(request.form.get('param_a'))
                 b = float(request.form.get('param_b'))
                 result = solve_bisection(func_str, a, b, tol, max_iter)
-
+                
             elif method == 'regula_falsi':
                 a = float(request.form.get('param_a'))
                 b = float(request.form.get('param_b'))
                 result = solve_regula_falsi(func_str, a, b, tol, max_iter)
-
+                
             elif method == 'secant':
                 x0 = float(request.form.get('param_x0'))
                 x1 = float(request.form.get('param_x1'))
                 result = solve_secant(func_str, x0, x1, tol, max_iter)
-
+                
             elif method == 'newton':
                 deriv_str = request.form.get('derivative')
                 x0 = float(request.form.get('param_x0'))
                 result = solve_newton(func_str, deriv_str, x0, tol, max_iter)
-
+                
             elif method == 'fixed_point':
                 x0 = float(request.form.get('param_x0'))
                 result = solve_fixed_point(func_str, x0, tol, max_iter)
-
+                
             elif method == 'mod_secant':
                 x0 = float(request.form.get('param_x0'))
                 delta = float(request.form.get('param_delta'))
                 result = solve_mod_secant(func_str, x0, delta, tol, max_iter)
-
+            
+            # --- CRITICAL FIX: RETURN JSON ---
+            return jsonify(result)
+                
         except ValueError:
-            result = {"error": "Input Error: Ensure all fields are numbers where required."}
+            return jsonify({"error": "Input Error: Ensure all fields are numbers where required."})
         except Exception as e:
-            result = {"error": f"System Error: {str(e)}"}
+            return jsonify({"error": f"System Error: {str(e)}"})
 
-    return render_template('index.html', result=result)
-
+    # HANDLE GET (Loading the page)
+    return render_template('index.html')
 
 if __name__ == '__main__':
-
     app.run(debug=True)
